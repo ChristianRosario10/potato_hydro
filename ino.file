@@ -1,0 +1,307 @@
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <ArduinoJson.h>
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+#include <DHT.h>
+
+// // WiFi credentials
+// #define WIFI_SSID "converge 2.4g"
+// #define WIFI_PASS "chris122697"
+
+#define WIFI_SSID "vivo x200 pro ultra 5g"
+#define WIFI_PASS "vivox200"
+
+// Firebase configuration
+#define FIREBASE_HOST "potato-hydro-default-rtdb.firebaseio.com"
+// No authentication key needed with anonymous auth on the web interface
+
+// Sensor pins
+#define DHT11_PIN 26
+#define RELAY_PIN 18
+#define PIR_PIN 27
+#define SOIL_MOISTURE_PIN 32
+#define DHT_SENSOR_TYPE DHT11
+
+// Temperature thresholds
+#define TEMP_UPPER_THRESHOLD 30
+#define TEMP_LOWER_THRESHOLD 15
+
+// API endpoints
+const char *LOCAL_API_ENDPOINT = "http://192.168.214.54:8000/api/sensor-data";
+const char *API_KEY = "esp32_hydroponic_key";
+
+// Sensor objects
+DHT dht(DHT11_PIN, DHT_SENSOR_TYPE);
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+
+// Calibration constants
+const int dryValue = 4095; // Value when sensor is in air
+const int wetValue = 2000; // Value when sensor is in water
+
+// Timing variables
+unsigned long previousMillis = 0;
+const long interval = 9000; // 9 seconds between readings
+unsigned long displayPreviousMillis = 0;
+const long displayInterval = 5000;
+int displayState = 0;
+
+// Error tracking
+int firebaseErrorCount = 0;
+const int MAX_FIREBASE_ERRORS = 5;
+bool firebaseEnabled = true;
+
+void setup()
+{
+    Serial.begin(115200);
+
+    // Initialize I2C
+    Wire.begin();
+
+    // Initialize sensors and display
+    dht.begin();
+    lcd.init();
+    lcd.backlight();
+
+    // Initialize pins
+    pinMode(RELAY_PIN, OUTPUT);
+    pinMode(PIR_PIN, INPUT);
+
+    // Show startup message
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("Connecting WiFi");
+
+    // Connect to WiFi
+    WiFi.begin(WIFI_SSID, WIFI_PASS);
+    while (WiFi.status() != WL_CONNECTED)
+    {
+        delay(500);
+        Serial.print(".");
+        lcd.setCursor(0, 1);
+        lcd.print(".");
+    }
+    Serial.println("\nWiFi connected");
+
+    // Show connected message
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("WiFi Connected");
+    lcd.setCursor(0, 1);
+    lcd.print(WiFi.localIP());
+    delay(2000);
+}
+
+void loop()
+{
+    unsigned long currentMillis = millis();
+
+    // Update sensor readings and send to API
+    if (currentMillis - previousMillis >= interval)
+    {
+        previousMillis = currentMillis;
+
+        float temperature = dht.readTemperature();
+        float humidity = dht.readHumidity();
+        int pirState = digitalRead(PIR_PIN);
+        int soilMoistureValue = analogRead(SOIL_MOISTURE_PIN);
+        float soilMoisturePercentage = map(soilMoistureValue, dryValue, wetValue, 0, 100);
+        soilMoisturePercentage = constrain(soilMoisturePercentage, 0, 100); // Ensure value stays between 0-100
+        bool relayState = false;
+
+        if (!isnan(temperature) && !isnan(humidity))
+        {
+            // Control relay based on temperature
+            if (temperature > TEMP_UPPER_THRESHOLD)
+            {
+                digitalWrite(RELAY_PIN, HIGH);
+                relayState = true;
+            }
+            else if (temperature < TEMP_LOWER_THRESHOLD)
+            {
+                digitalWrite(RELAY_PIN, LOW);
+                relayState = false;
+            }
+
+            // Send data to both local and Firebase endpoints
+            sendSensorData(temperature, humidity, soilMoisturePercentage, pirState == HIGH, relayState);
+        }
+    }
+
+    // Update LCD display
+    if (currentMillis - displayPreviousMillis >= displayInterval)
+    {
+        displayPreviousMillis = currentMillis;
+        updateDisplay();
+    }
+}
+
+void updateDisplay()
+{
+    float temperature = dht.readTemperature();
+    float humidity = dht.readHumidity();
+    int pirState = digitalRead(PIR_PIN);
+    int soilMoistureValue = analogRead(SOIL_MOISTURE_PIN);
+    float soilMoisturePercentage = map(soilMoistureValue, dryValue, wetValue, 0, 100);
+
+    lcd.clear();
+
+    switch (displayState)
+    {
+    case 0:
+        lcd.setCursor(0, 0);
+        lcd.print("Temp: ");
+        lcd.print(temperature, 1);
+        lcd.print("C");
+        lcd.setCursor(0, 1);
+        lcd.print("Humidity: ");
+        lcd.print(humidity, 1);
+        lcd.print("%");
+        break;
+    case 1:
+        lcd.setCursor(0, 0);
+        lcd.print("Motion: ");
+        lcd.print(pirState == HIGH ? "YES" : "NO");
+        lcd.setCursor(0, 1);
+        lcd.print("Fan: ");
+        lcd.print(digitalRead(RELAY_PIN) == HIGH ? "ON" : "OFF");
+        break;
+    case 2:
+        lcd.setCursor(0, 0);
+        lcd.print("Soil Moisture:");
+        lcd.setCursor(0, 1);
+        lcd.print(soilMoisturePercentage, 1);
+        lcd.print("% ");
+        lcd.print(soilMoisturePercentage > 30 ? "WET" : "DRY");
+        break;
+    case 3:
+        lcd.setCursor(0, 0);
+        lcd.print("WiFi: ");
+        lcd.print(WiFi.status() == WL_CONNECTED ? "OK" : "NO");
+        lcd.setCursor(0, 1);
+        lcd.print("Firebase: ");
+        lcd.print(firebaseEnabled ? "ON" : "OFF");
+        break;
+    }
+
+    displayState = (displayState + 1) % 4;
+}
+
+void sendSensorData(float temp, float humidity, float soilMoisture, bool motion, bool relay)
+{
+    if (WiFi.status() == WL_CONNECTED)
+    {
+        // Create JSON document for Firebase
+        StaticJsonDocument<200> doc;
+        doc["temperature"] = temp;
+        doc["humidity"] = humidity;
+        doc["soil_moisture"] = soilMoisture;
+        doc["motion_detected"] = motion;
+        doc["relay_state"] = relay;
+        doc["timestamp"] = millis(); // Add timestamp for sorting in history
+
+        String jsonString;
+        serializeJson(doc, jsonString);
+
+        // Skip local endpoint (comment out or remove this section)
+        /* 
+        HTTPClient httpLocal;
+        httpLocal.begin(LOCAL_API_ENDPOINT);
+        httpLocal.addHeader("Content-Type", "application/json");
+
+        int localResponseCode = httpLocal.POST(jsonString);
+        if (localResponseCode > 0)
+        {
+            String response = httpLocal.getString();
+            Serial.println("Data sent successfully to local endpoint");
+            Serial.print("Response: ");
+            Serial.println(response);
+        }
+        else
+        {
+            Serial.print("Error sending data to local endpoint: ");
+            Serial.println(localResponseCode);
+        }
+        httpLocal.end();
+        */
+
+        // Only send to Firebase if enabled
+        if (firebaseEnabled) {
+            // Send current data to Firebase sensor_data node
+            // Use hardcoded URL to avoid string concatenation issues
+            const String firebaseUrl = "https://potato-hydro-default-rtdb.firebaseio.com/sensor_data.json";
+
+            HTTPClient httpFirebase;
+            httpFirebase.begin(firebaseUrl);
+            httpFirebase.addHeader("Content-Type", "application/json");
+
+            int firebaseResponseCode = httpFirebase.PUT(jsonString);
+            if (firebaseResponseCode > 0 && firebaseResponseCode < 300)
+            {
+                String response = httpFirebase.getString();
+                Serial.println("Data sent successfully to Firebase");
+                Serial.print("Response: ");
+                Serial.println(response);
+                
+                // Reset error count on success
+                firebaseErrorCount = 0;
+                
+                // Also add to sensor_history with timestamp
+                const String historyUrl = "https://potato-hydro-default-rtdb.firebaseio.com/sensor_history.json";
+                
+                HTTPClient httpHistory;
+                httpHistory.begin(historyUrl);
+                httpHistory.addHeader("Content-Type", "application/json");
+                
+                // Create unique entry in history with timestamp
+                StaticJsonDocument<250> historyDoc;
+                historyDoc["data"] = doc;
+                historyDoc["timestamp"] = millis();
+                
+                String historyJsonString;
+                serializeJson(historyDoc, historyJsonString);
+                
+                int historyResponseCode = httpHistory.POST(historyJsonString);
+                if (historyResponseCode > 0 && historyResponseCode < 300) {
+                    Serial.println("Data added to history successfully");
+                }
+                httpHistory.end();
+            }
+            else
+            {
+                firebaseErrorCount++;
+                Serial.print("Error sending data to Firebase: ");
+                Serial.println(firebaseResponseCode);
+                
+                // Disable Firebase after too many consecutive errors
+                if (firebaseErrorCount >= MAX_FIREBASE_ERRORS) {
+                    Serial.println("Too many Firebase errors. Disabling Firebase temporarily.");
+                    firebaseEnabled = false;
+                    
+                    // Try to re-enable Firebase after 5 minutes
+                    delay(300000);
+                    firebaseEnabled = true;
+                    firebaseErrorCount = 0;
+                }
+            }
+            httpFirebase.end();
+        }
+
+        // Print the actual data being sent for debugging
+        Serial.println("Sent sensor data:");
+        Serial.print("Temperature: ");
+        Serial.println(temp);
+        Serial.print("Humidity: ");
+        Serial.println(humidity);
+        Serial.print("Soil Moisture: ");
+        Serial.println(soilMoisture);
+        Serial.print("Motion: ");
+        Serial.println(motion ? "Detected" : "Not Detected");
+        Serial.print("Relay: ");
+        Serial.println(relay ? "ON" : "OFF");
+    }
+    else
+    {
+        Serial.println("WiFi not connected");
+    }
+} 

@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firebase Debug</title>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        pre { background-color: #f5f5f5; padding: 20px; border-radius: 5px; overflow: auto; }
+        button { padding: 10px 15px; margin: 10px 5px; cursor: pointer; }
+        .success { color: green; }
+        .error { color: red; }
+        .section { margin-bottom: 20px; border-bottom: 1px solid #ccc; padding-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Firebase Database Debug Tool</h1>
+    
+    <div class="section">
+        <h2>Connection Status</h2>
+        <p id="connection-status">Checking connection...</p>
+    </div>
+    
+    <div class="section">
+        <h2>Database Structure</h2>
+        <button id="check-root">Check Root Data</button>
+        <button id="check-sensor-data">Check Sensor Data</button>
+        <button id="check-history">Check History Data</button>
+        <pre id="database-content">Click a button to check data...</pre>
+    </div>
+    
+    <div class="section">
+        <h2>Test Data</h2>
+        <button id="write-test-data">Write Test Data to sensor_data</button>
+        <p id="write-result"></p>
+    </div>
+
+    <script>
+        // Initialize Firebase with correct configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyD51VjKsCK-HpeDno6cVqrbPBeshynIOic",
+            authDomain: "potato-hydro.firebaseapp.com",
+            databaseURL: "https://potato-hydro-default-rtdb.firebaseio.com",
+            projectId: "potato-hydro",
+            storageBucket: "potato-hydro.firebasestorage.app",
+            messagingSenderId: "569203450870",
+            appId: "1:569203450870:web:86b80d4d45843253d45dd7",
+            measurementId: "G-TJ2L4QJS24"
+        };
+
+        // Initialize Firebase
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+            console.log("Firebase initialized successfully");
+        }
+
+        const db = firebase.database();
+        
+        // Check connection status
+        db.ref(".info/connected").on("value", (snap) => {
+            const statusElement = document.getElementById('connection-status');
+            if (snap.val() === true) {
+                statusElement.textContent = "Connected to Firebase";
+                statusElement.className = "success";
+            } else {
+                statusElement.textContent = "Disconnected from Firebase";
+                statusElement.className = "error";
+            }
+        });
+
+        // Check root data
+        document.getElementById('check-root').addEventListener('click', () => {
+            const outputElement = document.getElementById('database-content');
+            outputElement.textContent = "Loading...";
+            
+            db.ref("/").once("value")
+                .then((snapshot) => {
+                    const data = snapshot.val();
+                    outputElement.textContent = JSON.stringify(data, null, 2);
+                    console.log("Root data:", data);
+                })
+                .catch((error) => {
+                    outputElement.textContent = "Error: " + error.message;
+                    outputElement.className = "error";
+                });
+        });
+
+        // Check sensor data
+        document.getElementById('check-sensor-data').addEventListener('click', () => {
+            const outputElement = document.getElementById('database-content');
+            outputElement.textContent = "Loading...";
+            
+            db.ref("/sensor_data").once("value")
+                .then((snapshot) => {
+                    const data = snapshot.val();
+                    outputElement.textContent = JSON.stringify(data, null, 2);
+                    console.log("Sensor data:", data);
+                })
+                .catch((error) => {
+                    outputElement.textContent = "Error: " + error.message;
+                    outputElement.className = "error";
+                });
+        });
+
+        // Check history data
+        document.getElementById('check-history').addEventListener('click', () => {
+            const outputElement = document.getElementById('database-content');
+            outputElement.textContent = "Loading...";
+            
+            db.ref("/sensor_history").once("value")
+                .then((snapshot) => {
+                    const data = snapshot.val();
+                    outputElement.textContent = JSON.stringify(data, null, 2);
+                    console.log("History data:", data);
+                })
+                .catch((error) => {
+                    outputElement.textContent = "Error: " + error.message;
+                    outputElement.className = "error";
+                });
+        });
+
+        // Write test data
+        document.getElementById('write-test-data').addEventListener('click', () => {
+            const resultElement = document.getElementById('write-result');
+            resultElement.textContent = "Writing test data...";
+            
+            const testData = {
+                temperature: 25.5,
+                humidity: 65.3,
+                soil_moisture: 42.1,
+                motion_detected: true,
+                relay_state: false,
+                timestamp: Date.now()
+            };
+            
+            db.ref("/sensor_data").set(testData)
+                .then(() => {
+                    resultElement.textContent = "Test data written successfully!";
+                    resultElement.className = "success";
+                    console.log("Test data written:", testData);
+                })
+                .catch((error) => {
+                    resultElement.textContent = "Error writing test data: " + error.message;
+                    resultElement.className = "error";
+                });
+        });
+    </script>
+</body>
+</html> 
