@@ -197,21 +197,63 @@
         const sections = ['temperature', 'humidity', 'soil_moisture', 'motion_detected', 'relay_state', 'share'];
 
         function showSection(id) {
+            // Hide all sections first
             sections.forEach(sec => document.getElementById(sec).classList.add('hidden'));
             document.getElementById('profile-display').classList.add('hidden');
             document.getElementById('history').classList.add('hidden');
 
+            // Show only the clicked section
             if (id === 'profile-display') {
                 document.getElementById('profile-display').classList.remove('hidden');
             } else if (id === 'history') {
                 document.getElementById('history').classList.remove('hidden');
                 renderHistory();
+            } else if (id === 'share') {
+                document.getElementById('share').classList.remove('hidden');
+                generateShareUrl();
             } else {
+                // For sensor sections, show only the clicked one
                 document.getElementById(id).classList.remove('hidden');
-                if (id === 'share') {
-                    generateShareUrl();
-                }
+                
+                // Update only the visible sensor's value
+                const sensorRef = database.ref('sensor_data');
+                sensorRef.once('value', (snapshot) => {
+                    const data = snapshot.val();
+                    if (data) {
+                        updateSensorValue(id, data[id], previousValues[id]);
+                    }
+                });
             }
+        }
+
+        // Helper function to update individual sensor values
+        function updateSensorValue(sensorId, currentValue, previousValue) {
+            let displayValue = 'N/A';
+            let formattedValue = currentValue;
+
+            switch(sensorId) {
+                case 'temperature':
+                    formattedValue = parseFloat(currentValue);
+                    displayValue = isNaN(formattedValue) ? 'N/A°C' : `${formattedValue}°C`;
+                    break;
+                case 'humidity':
+                case 'soil_moisture':
+                    formattedValue = parseFloat(currentValue);
+                    displayValue = isNaN(formattedValue) ? 'N/A%' : `${formattedValue}%`;
+                    break;
+                case 'motion_detected':
+                    displayValue = currentValue ? 'Detected' : 'None';
+                    formattedValue = currentValue ? 1 : 0;
+                    break;
+                case 'relay_state':
+                    displayValue = currentValue ? 'ON' : 'OFF';
+                    formattedValue = currentValue ? 1 : 0;
+                    break;
+            }
+
+            document.getElementById(`${sensorId}-value`).textContent = displayValue;
+            updateArrow(`${sensorId}-arrow`, formattedValue, previousValue);
+            previousValues[sensorId] = formattedValue;
         }
 
         // Profile Data
@@ -416,35 +458,15 @@
             sensorRef.on('value', (snapshot) => {
                 const data = snapshot.val();
                 if (data) {
-                    // Update temperature
-                    const currentTemp = parseFloat(data.temperature);
-                    document.getElementById('temperature-value').textContent = isNaN(currentTemp) ? 'N/A°C' : `${currentTemp}°C`;
-                    updateArrow('temperature-arrow', currentTemp, previousValues.temperature);
-                    previousValues.temperature = currentTemp;
+                    // Find which sensor section is currently visible
+                    const visibleSensor = ['temperature', 'humidity', 'soil_moisture', 'motion_detected', 'relay_state'].find(
+                        sensor => !document.getElementById(sensor).classList.contains('hidden')
+                    );
 
-                    // Update humidity
-                    const currentHumidity = parseFloat(data.humidity);
-                    document.getElementById('humidity-value').textContent = isNaN(currentHumidity) ? 'N/A%' : `${currentHumidity}%`;
-                    updateArrow('humidity-arrow', currentHumidity, previousValues.humidity);
-                    previousValues.humidity = currentHumidity;
-
-                    // Update soil moisture
-                    const currentSoilMoisture = parseFloat(data.soil_moisture);
-                    document.getElementById('soil_moisture-value').textContent = isNaN(currentSoilMoisture) ? 'N/A%' : `${currentSoilMoisture}%`;
-                    updateArrow('soil_moisture-arrow', currentSoilMoisture, previousValues.soil_moisture);
-                    previousValues.soil_moisture = currentSoilMoisture;
-
-                    // Update motion detection
-                    const currentMotion = data.motion_detected;
-                    document.getElementById('motion_detected-value').textContent = currentMotion ? 'Detected' : 'None';
-                    updateArrow('motion_detected-arrow', currentMotion ? 1 : 0, previousValues.motion_detected ? 1 : 0);
-                    previousValues.motion_detected = currentMotion;
-
-                    // Update relay state
-                    const currentRelay = data.relay_state;
-                    document.getElementById('relay_state-value').textContent = currentRelay ? 'ON' : 'OFF';
-                    updateArrow('relay_state-arrow', currentRelay ? 1 : 0, previousValues.relay_state ? 1 : 0);
-                    previousValues.relay_state = currentRelay;
+                    // Only update the visible sensor's value
+                    if (visibleSensor) {
+                        updateSensorValue(visibleSensor, data[visibleSensor], previousValues[visibleSensor]);
+                    }
 
                     // Update timestamp
                     document.getElementById('timestamp').textContent = new Date().toLocaleString('en-US', {
