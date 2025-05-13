@@ -14,7 +14,11 @@ class SensorDataController extends Controller
      */
     public function dashboard()
     {
-        return view('sensor-data');
+        try {
+            return view('sensor-data');
+        } catch (\Exception $e) {
+            return 'Error loading view: ' . $e->getMessage();
+        }
     }
 
     /**
