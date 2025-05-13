@@ -6,6 +6,9 @@
     <title>Potato Hydroponic System</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -175,6 +178,22 @@
 
     <!-- Scripts -->
     <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyD51VjKsCK-HpeDno6cVqrbPBeshynIOic",
+            authDomain: "potato-hydro.firebaseapp.com",
+            databaseURL: "https://potato-hydro-default-rtdb.firebaseio.com",
+            projectId: "potato-hydro",
+            storageBucket: "potato-hydro.firebasestorage.app",
+            messagingSenderId: "569203450870",
+            appId: "1:569203450870:web:86b80d4d45843253d45dd7",
+            measurementId: "G-TJ2L4QJS24"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
         const sections = ['temperature', 'humidity', 'soil_moisture', 'motion_detected', 'relay_state', 'share'];
 
         function showSection(id) {
@@ -391,80 +410,104 @@
             });
         });
 
-        // Fetch and update sensor values
-        function updateSensorData() {
-            fetch('/api/sensor-data')
-                .then(response => response.json())
-                .then(data => {
-                    if (data) {
-                        // Update temperature
-                        const currentTemp = parseFloat(data.temperature);
-                        document.getElementById('temperature-value').textContent = isNaN(currentTemp) ? 'N/A°C' : `${currentTemp}°C`;
-                        updateArrow('temperature-arrow', currentTemp, previousValues.temperature);
-                        previousValues.temperature = currentTemp;
+        // Set up Firebase real-time listener for sensor data
+        function setupSensorDataListener() {
+            const sensorRef = database.ref('sensor_data');
+            
+            // Listen for real-time updates
+            sensorRef.on('value', (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    // Update temperature
+                    const currentTemp = parseFloat(data.temperature);
+                    document.getElementById('temperature-value').textContent = isNaN(currentTemp) ? 'N/A°C' : `${currentTemp}°C`;
+                    updateArrow('temperature-arrow', currentTemp, previousValues.temperature);
+                    previousValues.temperature = currentTemp;
 
-                        // Update humidity
-                        const currentHumidity = parseFloat(data.humidity);
-                        document.getElementById('humidity-value').textContent = isNaN(currentHumidity) ? 'N/A%' : `${currentHumidity}%`;
-                        updateArrow('humidity-arrow', currentHumidity, previousValues.humidity);
-                        previousValues.humidity = currentHumidity;
+                    // Update humidity
+                    const currentHumidity = parseFloat(data.humidity);
+                    document.getElementById('humidity-value').textContent = isNaN(currentHumidity) ? 'N/A%' : `${currentHumidity}%`;
+                    updateArrow('humidity-arrow', currentHumidity, previousValues.humidity);
+                    previousValues.humidity = currentHumidity;
 
-                        // Update soil moisture
-                        const currentSoilMoisture = parseFloat(data.soil_moisture);
-                        document.getElementById('soil_moisture-value').textContent = isNaN(currentSoilMoisture) ? 'N/A%' : `${currentSoilMoisture}%`;
-                        updateArrow('soil_moisture-arrow', currentSoilMoisture, previousValues.soil_moisture);
-                        previousValues.soil_moisture = currentSoilMoisture;
+                    // Update soil moisture
+                    const currentSoilMoisture = parseFloat(data.soil_moisture);
+                    document.getElementById('soil_moisture-value').textContent = isNaN(currentSoilMoisture) ? 'N/A%' : `${currentSoilMoisture}%`;
+                    updateArrow('soil_moisture-arrow', currentSoilMoisture, previousValues.soil_moisture);
+                    previousValues.soil_moisture = currentSoilMoisture;
 
-                        // Update motion detection
-                        const currentMotion = data.motion_detected;
-                        document.getElementById('motion_detected-value').textContent = currentMotion ? 'Detected' : 'None';
-                        updateArrow('motion_detected-arrow', currentMotion ? 1 : 0, previousValues.motion_detected ? 1 : 0);
-                        previousValues.motion_detected = currentMotion;
+                    // Update motion detection
+                    const currentMotion = data.motion_detected;
+                    document.getElementById('motion_detected-value').textContent = currentMotion ? 'Detected' : 'None';
+                    updateArrow('motion_detected-arrow', currentMotion ? 1 : 0, previousValues.motion_detected ? 1 : 0);
+                    previousValues.motion_detected = currentMotion;
 
-                        // Update relay state
-                        const currentRelay = data.relay_state;
-                        document.getElementById('relay_state-value').textContent = currentRelay ? 'ON' : 'OFF';
-                        updateArrow('relay_state-arrow', currentRelay ? 1 : 0, previousValues.relay_state ? 1 : 0);
-                        previousValues.relay_state = currentRelay;
+                    // Update relay state
+                    const currentRelay = data.relay_state;
+                    document.getElementById('relay_state-value').textContent = currentRelay ? 'ON' : 'OFF';
+                    updateArrow('relay_state-arrow', currentRelay ? 1 : 0, previousValues.relay_state ? 1 : 0);
+                    previousValues.relay_state = currentRelay;
 
-                        // Update timestamp from API response
-                        let timestampDisplay;
-                        if (data.timestamp) {
-                            const date = new Date(data.timestamp);
-                            timestampDisplay = date.toLocaleString('en-US', {
-                                month: 'long',
-                                day: 'numeric',
-                                year: 'numeric',
-                                hour: 'numeric',
-                                minute: 'numeric',
-                                second: 'numeric',
-                                hour12: true
-                            });
-                        } else {
-                            timestampDisplay = new Date().toLocaleString('en-US', {
-                                month: 'long',
-                                day: 'numeric',
-                                year: 'numeric',
-                                hour: 'numeric',
-                                minute: 'numeric',
-                                second: 'numeric',
-                                hour12: true
-                            });
-                        }
-                        document.getElementById('timestamp').textContent = timestampDisplay;
+                    // Update timestamp
+                    document.getElementById('timestamp').textContent = new Date().toLocaleString('en-US', {
+                        month: 'long',
+                        day: 'numeric',
+                        year: 'numeric',
+                        hour: 'numeric',
+                        minute: 'numeric',
+                        second: 'numeric',
+                        hour12: true
+                    });
 
-                        // Log data
-                        logSensorData(data);
+                    // Log data for history
+                    logSensorData(data);
+
+                    // Update history view if it's currently visible
+                    if (!document.getElementById('history').classList.contains('hidden')) {
+                        renderHistory();
                     }
-                })
-                .catch(error => console.error('Error fetching sensor data:', error));
+                }
+            });
+
+            // Listen for history updates
+            const historyRef = database.ref('sensor_history').orderByChild('timestamp').limitToLast(20);
+            historyRef.on('value', (snapshot) => {
+                const historyData = snapshot.val();
+                if (historyData) {
+                    // Convert the object to array and sort by timestamp
+                    const historyArray = Object.entries(historyData)
+                        .map(([key, value]) => ({
+                            ...value,
+                            id: key
+                        }))
+                        .sort((a, b) => b.timestamp - a.timestamp);
+
+                    // Update history log
+                    historyLog.length = 0; // Clear existing log
+                    historyArray.forEach(entry => {
+                        historyLog.push({
+                            timestamp: new Date(entry.timestamp).toLocaleString(),
+                            temperature: entry.temperature ?? 'N/A',
+                            humidity: entry.humidity ?? 'N/A',
+                            soil_moisture: entry.soil_moisture ?? 'N/A',
+                            motion_detected: entry.motion_detected ? 'Detected' : 'None',
+                            relay_state: entry.relay_state ? 'ON' : 'OFF'
+                        });
+                    });
+
+                    // Update history view if it's currently visible
+                    if (!document.getElementById('history').classList.contains('hidden')) {
+                        renderHistory();
+                    }
+                }
+            });
         }
 
-        // Initial update
-        updateSensorData();
-        
-        // Update every 3 seconds for more responsive data
-        setInterval(updateSensorData, 3000);
+        // Initialize
+        window.onload = () => {
+            checkSharedMode();
+            setupSensorDataListener(); // Start listening for Firebase updates
+        };
     </script>
 </body>
 </html>
