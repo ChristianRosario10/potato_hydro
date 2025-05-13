@@ -53,11 +53,19 @@ class SensorDataController extends Controller
                 'soil_moisture' => 45.0,
                 'motion_detected' => false,
                 'relay_state' => false,
-                'created_at' => now(),
+                'timestamp' => now()->toIso8601String(),
             ]);
         }
         
-        return response()->json($latest);
+        // Return a simplified format with just the necessary data
+        return response()->json([
+            'temperature' => (float) $latest->temperature,
+            'humidity' => (float) $latest->humidity,
+            'soil_moisture' => (float) $latest->soil_moisture,
+            'motion_detected' => (bool) $latest->motion_detected,
+            'relay_state' => (bool) $latest->relay_state,
+            'timestamp' => $latest->created_at->toIso8601String(),
+        ]);
     }
     
     /**
@@ -76,7 +84,28 @@ class SensorDataController extends Controller
      */
     public function index()
     {
-        $readings = SensorData::latest()->paginate(20);
-        return response()->json($readings);
+        $latest = SensorData::latest()->first();
+        
+        if (!$latest) {
+            // Return dummy data if no readings yet
+            return response()->json([
+                'temperature' => 25.0,
+                'humidity' => 60.0,
+                'soil_moisture' => 45.0,
+                'motion_detected' => false,
+                'relay_state' => false,
+                'timestamp' => now()->toIso8601String(),
+            ]);
+        }
+        
+        // Return a simplified format with just the necessary data
+        return response()->json([
+            'temperature' => (float) $latest->temperature,
+            'humidity' => (float) $latest->humidity,
+            'soil_moisture' => (float) $latest->soil_moisture,
+            'motion_detected' => (bool) $latest->motion_detected,
+            'relay_state' => (bool) $latest->relay_state,
+            'timestamp' => $latest->created_at->toIso8601String(),
+        ]);
     }
 }
