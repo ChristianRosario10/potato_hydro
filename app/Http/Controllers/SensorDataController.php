@@ -68,4 +68,15 @@ class SensorDataController extends Controller
         $readings = SensorData::latest()->paginate(20);
         return response()->json($readings);
     }
+    
+    /**
+     * Display a listing of the sensor data (for API resource)
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function index()
+    {
+        $readings = SensorData::latest()->paginate(20);
+        return response()->json($readings);
+    }
 }
