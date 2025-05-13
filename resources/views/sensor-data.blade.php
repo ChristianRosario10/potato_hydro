@@ -1257,27 +1257,53 @@
                     updateArrow('motion_detected-arrow', currentMotion ? 1 : 0, previousValues.motion_detected ? 1 : 0);
                     document.getElementById('motion-state').textContent = currentMotion ? 'Active' : 'Inactive';
                     document.getElementById('motion-status').textContent = currentMotion ? 'Motion detected' : 'No motion detected';
-                    previousValues.motion_detected = currentMotion;
                     
-                    // Update motion indicator
+                    // Add animation and visual feedback for real-time detection
                     const motionIndicator = document.getElementById('motion-indicator');
                     const motionIcon = document.getElementById('motion-icon');
                     
                     if (currentMotion) {
+                        // New motion detected that wasn't there before
+                        if (!previousValues.motion_detected) {
+                            // Flash animation for new motion detection
+                            motionIndicator.classList.add('animate-pulse');
+                            
+                            // Play notification sound if supported
+                            try {
+                                const audio = new Audio('data:audio/mp3;base64,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');
+                                audio.play();
+                            } catch (e) {
+                                console.log('Audio notification not supported');
+                            }
+                            
+                            // Update last triggered time with seconds
+                            document.getElementById('motion-last-time').textContent = new Date().toLocaleTimeString([], {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit'
+                            });
+                            
+                            // Log to console for debugging
+                            console.log('Motion detected at: ' + new Date().toISOString());
+                        }
+                        
                         motionIndicator.classList.add('border-orange-500');
                         motionIndicator.classList.remove('border-gray-700');
                         motionIcon.classList.add('text-orange-400');
                         motionIcon.classList.remove('text-gray-500');
                         motionIcon.classList.remove('fa-user-slash');
                         motionIcon.classList.add('fa-user');
-                        
-                        // Update last triggered time
-                        document.getElementById('motion-last-time').textContent = new Date().toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit'
-                        });
                     } else {
-                        motionIndicator.classList.remove('border-orange-500');
+                        // Motion stopped
+                        if (previousValues.motion_detected) {
+                            // Stop animation when motion ends
+                            motionIndicator.classList.remove('animate-pulse');
+                            
+                            // Log to console for debugging
+                            console.log('Motion stopped at: ' + new Date().toISOString());
+                        }
+                        
+                        motionIndicator.classList.remove('border-orange-500', 'animate-pulse');
                         motionIndicator.classList.add('border-gray-700');
                         motionIcon.classList.remove('text-orange-400');
                         motionIcon.classList.add('text-gray-500');
@@ -1285,6 +1311,8 @@
                         motionIcon.classList.remove('fa-user');
                     }
                     
+                    previousValues.motion_detected = currentMotion;
+
                     // Add to historical data
                     historicalData.motion_detected.push({
                         timestamp: new Date().toISOString(),
@@ -1294,30 +1322,6 @@
                         historicalData.motion_detected.shift();
                     }
 
-                    // Update relay state
-                    const currentRelay = data.relay_state;
-                    document.getElementById('relay_state-value').textContent = currentRelay ? 'ON' : 'OFF';
-                    updateArrow('relay_state-arrow', currentRelay ? 1 : 0, previousValues.relay_state ? 1 : 0);
-                    document.getElementById('relay-state').textContent = currentRelay ? 'Active' : 'Inactive';
-                    document.getElementById('relay-status').textContent = currentRelay ? 'System is active' : 'System is not active';
-                    previousValues.relay_state = currentRelay;
-                    
-                    // Update relay switch
-                    const relaySwitch = document.getElementById('relay-switch');
-                    const relaySlider = document.getElementById('relay-slider');
-                    
-                    if (currentRelay) {
-                        relaySwitch.classList.add('bg-red-500', 'bg-opacity-50');
-                        relaySwitch.classList.remove('bg-gray-700');
-                        relaySlider.classList.add('bg-red-500', 'translate-x-12');
-                        relaySlider.classList.remove('bg-gray-500', 'translate-x-0');
-                    } else {
-                        relaySwitch.classList.remove('bg-red-500', 'bg-opacity-50');
-                        relaySwitch.classList.add('bg-gray-700');
-                        relaySlider.classList.remove('bg-red-500', 'translate-x-12');
-                        relaySlider.classList.add('bg-gray-500', 'translate-x-0');
-                    }
-                    
                     // Update timestamp
                     document.getElementById('timestamp').textContent = new Date().toLocaleString('en-US', {
                         month: 'long',
@@ -1344,6 +1348,39 @@
                     // Update history view if it's currently visible
                     if (!document.getElementById('history').classList.contains('hidden')) {
                         renderHistory();
+                    }
+
+                    // Update relay state
+                    const currentRelay = data.relay_state;
+                    document.getElementById('relay_state-value').textContent = currentRelay ? 'ON' : 'OFF';
+                    updateArrow('relay_state-arrow', currentRelay ? 1 : 0, previousValues.relay_state ? 1 : 0);
+                    document.getElementById('relay-state').textContent = currentRelay ? 'Active' : 'Inactive';
+                    document.getElementById('relay-status').textContent = currentRelay ? 'System is active' : 'System is not active';
+                    previousValues.relay_state = currentRelay;
+                    
+                    // Update relay switch
+                    const relaySwitch = document.getElementById('relay-switch');
+                    const relaySlider = document.getElementById('relay-slider');
+                    
+                    if (currentRelay) {
+                        relaySwitch.classList.add('bg-red-500', 'bg-opacity-50');
+                        relaySwitch.classList.remove('bg-gray-700');
+                        relaySlider.classList.add('bg-red-500', 'translate-x-12');
+                        relaySlider.classList.remove('bg-gray-500', 'translate-x-0');
+                    } else {
+                        relaySwitch.classList.remove('bg-red-500', 'bg-opacity-50');
+                        relaySwitch.classList.add('bg-gray-700');
+                        relaySlider.classList.remove('bg-red-500', 'translate-x-12');
+                        relaySlider.classList.add('bg-gray-500', 'translate-x-0');
+                    }
+                    
+                    // Add to historical data
+                    historicalData.relay_state.push({
+                        timestamp: new Date().toISOString(),
+                        value: currentRelay ? 1 : 0
+                    });
+                    if (historicalData.relay_state.length > 100) {
+                        historicalData.relay_state.shift();
                     }
                 }
             });
