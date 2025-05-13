@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Onion Hydroponic System</title>
+    <title>Potato Hydroponic System</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
     <style>
@@ -265,7 +265,7 @@
                 address: "San Juan, Sta Lucia",
                 motto: "Stay humble, keep learning.",
                 bio: "I enjoy working on IoT projects and developing embedded systems.",
-                img: "https://via.placeholder.com/160"
+                img: "img/chan.png"
             },
             oliver: {
                 name: "Oliver Narvaza",
@@ -289,7 +289,7 @@
                 address: "Carcar City, Cebu",
                 motto: "Success is not final, failure is not fatal: It is the courage to continue that counts.",
                 bio: "Loves designing UI/UX and creating user-centered experiences.",
-                img: "https://via.placeholder.com/160"
+                img: "img/she.png"
             }
         };
 
@@ -427,16 +427,31 @@
                         updateArrow('relay_state-arrow', currentRelay ? 1 : 0, previousValues.relay_state ? 1 : 0);
                         previousValues.relay_state = currentRelay;
 
-                        // Update timestamp
-                        document.getElementById('timestamp').textContent = new Date().toLocaleString('en-US', {
-                            month: 'long',
-                            day: 'numeric',
-                            year: 'numeric',
-                            hour: 'numeric',
-                            minute: 'numeric',
-                            second: 'numeric',
-                            hour12: true
-                        });
+                        // Update timestamp from API response
+                        let timestampDisplay;
+                        if (data.timestamp) {
+                            const date = new Date(data.timestamp);
+                            timestampDisplay = date.toLocaleString('en-US', {
+                                month: 'long',
+                                day: 'numeric',
+                                year: 'numeric',
+                                hour: 'numeric',
+                                minute: 'numeric',
+                                second: 'numeric',
+                                hour12: true
+                            });
+                        } else {
+                            timestampDisplay = new Date().toLocaleString('en-US', {
+                                month: 'long',
+                                day: 'numeric',
+                                year: 'numeric',
+                                hour: 'numeric',
+                                minute: 'numeric',
+                                second: 'numeric',
+                                hour12: true
+                            });
+                        }
+                        document.getElementById('timestamp').textContent = timestampDisplay;
 
                         // Log data
                         logSensorData(data);
@@ -445,8 +460,11 @@
                 .catch(error => console.error('Error fetching sensor data:', error));
         }
 
-        setInterval(updateSensorData, 5000);
+        // Initial update
         updateSensorData();
+        
+        // Update every 3 seconds for more responsive data
+        setInterval(updateSensorData, 3000);
     </script>
 </body>
 </html>
