@@ -20,11 +20,12 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
 Route::apiResource('posts', PostController::class);
+Route::apiResource('sensor-data', SensorDataController::class);
 
-// Sensor Data Routes
-Route::get('/sensor-data', [SensorDataController::class, 'getLatest']);
-Route::get('/sensor-data/all', [SensorDataController::class, 'getAll']);
-Route::post('/sensor-data', [SensorDataController::class, 'store']);
+// Individual Sensor Data Routes
+Route::get('/sensor-readings', [SensorDataController::class, 'getLatest']);
+Route::get('/sensor-readings/all', [SensorDataController::class, 'getAll']);
+Route::post('/sensor-readings', [SensorDataController::class, 'store']);
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
